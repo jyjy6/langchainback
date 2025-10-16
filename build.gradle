@@ -1,0 +1,50 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.6'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'langhchainback'
+version = '0.0.1-SNAPSHOT'
+description = 'langhchainbackend'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+def langchain4jVersion = "0.35.0"
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+//	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	compileOnly 'org.projectlombok:lombok'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+//	testImplementation 'org.springframework.security:spring-security-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	implementation "dev.langchain4j:langchain4j-core:${langchain4jVersion}"
+	implementation "dev.langchain4j:langchain4j-google-ai-gemini:${langchain4jVersion}"
+	// 만약 Spring Boot 같이 사용 중이면 starter도 추가 가능
+	implementation "dev.langchain4j:langchain4j-spring-boot-starter:${langchain4jVersion}"
+//	implementation 'dev.langchain4j:langchain4j-open-ai-spring-boot-starter'
+
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

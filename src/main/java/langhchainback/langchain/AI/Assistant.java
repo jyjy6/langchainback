@@ -8,7 +8,6 @@ import dev.langchain4j.service.spring.AiService;
  * LangChain4j Assistant 인터페이스
  * @SystemMessage와 @UserMessage 어노테이션을 활용한 프롬프트 엔지니어링
  */
-@AiService
 public interface Assistant {
 
     /**

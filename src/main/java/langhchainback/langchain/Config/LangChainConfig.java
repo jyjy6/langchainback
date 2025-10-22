@@ -3,6 +3,7 @@ package langhchainback.langchain.Config;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
+import dev.langchain4j.model.googleai.GoogleAiGeminiStreamingChatModel;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.store.memory.chat.InMemoryChatMemoryStore;
 import langhchainback.langchain.AI.Assistant;
@@ -108,9 +109,9 @@ public class LangChainConfig {
 
     /**
      * Phase 1.3: 스트리밍 응답 Assistant
-     * - GoogleAiGeminiChatModel 하나로 일반/스트리밍 모두 처리
-     * - AiServices가 인터페이스의 반환 타입(TokenStream)을 보고 자동으로 스트리밍 처리
-     * - 별도의 StreamingChatModel이 필요 없음
+     * - GoogleAiGeminiStreamingChatModel 사용 시도 (최신 버전 테스트)
+     * - TokenStream을 통해 실시간 토큰 생성
+     * - OpenAI ChatGPT와 동일한 방식
      */
     @Bean
     public StreamingAssistant streamingAssistant() {
@@ -118,13 +119,12 @@ public class LangChainConfig {
             throw new IllegalStateException("GEMINI_API_KEY not set in environment variables");
         }
 
-        GoogleAiGeminiChatModel model = GoogleAiGeminiChatModel.builder()
+        GoogleAiGeminiStreamingChatModel streamingModel = GoogleAiGeminiStreamingChatModel.builder()
                 .apiKey(apiKey)
                 .modelName("gemini-2.5-flash")
                 .temperature(0.7)
                 .build();
 
-        // 동일한 모델로 생성 - AiServices가 TokenStream 반환을 보고 자동 스트리밍 처리
-        return AiServices.create(StreamingAssistant.class, model);
+        return AiServices.create(StreamingAssistant.class, streamingModel);
     }
 }

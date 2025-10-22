@@ -21,37 +21,24 @@ import java.util.concurrent.CompletableFuture;
 @RequestMapping("/ai/stream")
 @RequiredArgsConstructor
 @Slf4j
+@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 public class StreamingController {
-    private final Assistant assistant;  // 일반 Assistant 사용 (Google AI는 TokenStream 미지원)
+    private final StreamingAssistant streamingAssistant;  // 실제 스트리밍 Assistant 사용!
 
     /**
      * 예제 1: 기본 스트리밍 채팅
      * GET /ai/stream/chat?message=스프링부트에 대해 자세히 설명해줘
      * 
-     * 참고: Google AI Gemini는 TokenStream을 지원하지 않아 수동 스트리밍 구현
+     * 실제 TokenStream 스트리밍 사용 (Gemini 1.0.0+ 지원)
      * curl -N "http://localhost:8080/ai/stream/chat?message=안녕하세요"
      */
     @GetMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> chat(@RequestParam String message) {
         log.info("Streaming chat request: {}", message);
         
-        return Flux.create(sink -> {
-            CompletableFuture.runAsync(() -> {
-                try {
-                    String response = assistant.chat(message);
-                    // 단어 단위로 나눠서 스트리밍 효과
-                    String[] words = response.split("(?<=\\s)|(?=\\s)");
-                    for (String word : words) {
-                        sink.next(word);
-                        Thread.sleep(50); // 50ms 딜레이로 스트리밍 효과
-                    }
-                    sink.complete();
-                } catch (Exception e) {
-                    log.error("Streaming error", e);
-                    sink.error(e);
-                }
-            });
-        });
+        return createFluxFromTokenStream(
+            streamingAssistant.chat(message)
+        );
     }
 
     /**
@@ -62,7 +49,9 @@ public class StreamingController {
     public Flux<String> writeBlog(@RequestParam String topic) {
         log.info("Streaming blog generation: {}", topic);
         
-        return simulateStreaming(() -> assistant.writeBlogPost(topic));
+        return createFluxFromTokenStream(
+            streamingAssistant.writeBlogPost(topic)
+        );
     }
 
     /**
@@ -156,12 +145,12 @@ public class StreamingController {
         tokenStream
             .onNext(token -> {
                 // 각 토큰이 생성될 때마다 스트리밍
-                log.debug("Token received: {}", token);
+                log.info("🔹 Token received ({}자): [{}]", token.length(), token);
                 sink.tryEmitNext(token);
             })
             .onComplete(response -> {
                 // 스트리밍 완료
-                log.info("Streaming completed");
+                log.info("✅ Streaming completed - Total tokens: {}", response);
                 sink.tryEmitComplete();
                 future.complete(response);
             })

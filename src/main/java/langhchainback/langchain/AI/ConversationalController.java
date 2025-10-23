@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/ai/memory")
 @Slf4j
+@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 public class ConversationalController {
     
     // InMemory 저장소 사용 (빠르지만 휘발성)

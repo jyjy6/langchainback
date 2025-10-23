@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/ai")
 @RequiredArgsConstructor
 @Slf4j
+@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 public class AssistantController {
     private final Assistant assistant;
 

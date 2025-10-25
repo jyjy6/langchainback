@@ -176,6 +176,7 @@ public class RagController {
             // RAG 파이프라인 실행 (검색 + 답변 생성)
             String answer = ragService.answerQuestion(request.question());
 
+            log.info("답변{}", answer);
             log.info("✅ 답변 생성 완료 - 답변 길이: {} 자", answer.length());
 
             AskResponse response = new AskResponse(

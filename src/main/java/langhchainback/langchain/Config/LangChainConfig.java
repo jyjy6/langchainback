@@ -4,6 +4,7 @@ import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
+import dev.langchain4j.model.googleai.GoogleAiEmbeddingModel;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import dev.langchain4j.model.googleai.GoogleAiGeminiStreamingChatModel;
 import dev.langchain4j.service.AiServices;
@@ -161,11 +162,14 @@ public class LangChainConfig {
      */
     @Bean
     public EmbeddingModel embeddingModel() {
-        log.info("🧠 Embedding Model 초기화 - AllMiniLmL6V2 (로컬 실행)");
-        
-        // 로컬에서 실행되는 경량 임베딩 모델
-        // 최초 실행 시 모델 다운로드 (약 23MB, 이후 캐시 사용)
-        return new AllMiniLmL6V2EmbeddingModel();
+
+        String modelName = "text-embedding-004";
+        log.info("🧠 Embedding Model 초기화 - Google AI ({})", modelName);
+
+        return GoogleAiEmbeddingModel.builder()
+                .apiKey(apiKey) // API 키 설정
+                .modelName(modelName)
+                .build();
     }
 
     /**

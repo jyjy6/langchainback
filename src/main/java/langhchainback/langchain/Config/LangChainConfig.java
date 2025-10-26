@@ -10,6 +10,7 @@ import dev.langchain4j.model.googleai.GoogleAiGeminiStreamingChatModel;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
+import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
 import dev.langchain4j.store.memory.chat.InMemoryChatMemoryStore;
 import langhchainback.langchain.AI.Assistant;
 import langhchainback.langchain.AI.ConversationalAssistant;
@@ -30,6 +31,21 @@ import org.springframework.data.redis.core.RedisTemplate;
 public class LangChainConfig {
     @Value("${langchain4j.google-ai-gemini.api-key}")
     String apiKey;
+
+    @Value("${pgvector.datasource.url}")
+    String pgvectorUrl;
+
+    @Value("${pgvector.datasource.username}")
+    String pgvectorUsername;
+
+    @Value("${pgvector.datasource.password}")
+    String pgvectorPassword;
+
+    @Value("${pgvector.table.name}")
+    String pgvectorTableName;
+
+    @Value("${pgvector.dimension}")
+    Integer pgvectorDimension;
 
     private final RedisTemplate redisTemplate;
 
@@ -173,43 +189,71 @@ public class LangChainConfig {
     }
 
     /**
-     * Phase 2.1-B: Embedding Store Bean
+     * Phase 2.1-B: Embedding Store Bean (PostgreSQL pgvector)
      * 
      * EmbeddingStore: 벡터화된 문서를 저장하는 벡터 데이터베이스
      * 
-     * InMemoryEmbeddingStore:
-     * - 메모리 기반 벡터 저장소
-     * - 빠른 속도 (메모리 접근)
-     * - 개발/테스트/PoC용 적합
+     * PgVectorEmbeddingStore:
+     * - PostgreSQL의 pgvector 확장을 사용한 벡터 저장소
+     * - 영구 저장 (재시작 후에도 데이터 유지)
+     * - 트랜잭션 지원
+     * - 프로덕션 환경 적합
+     * - 코사인 유사도 기반 검색 지원
+     * 
+     * 장점:
+     * - 무료 오픈소스
+     * - 기존 PostgreSQL 인프라 활용
+     * - ACID 트랜잭션 보장
+     * - SQL과 벡터 검색 결합 가능
+     * 
+     * InMemoryEmbeddingStore (개발용, 주석처리됨):
+     * - 메모리 기반, 빠르지만 휘발성
      * - 애플리케이션 재시작 시 데이터 소실
-     * - 대용량 문서에는 부적합 (메모리 제한)
      * 
-     * 프로덕션 대안:
-     * 1. PostgreSQL + pgvector (추천)
-     *    - 장점: 기존 DB 활용, 트랜잭션 지원, 무료
-     *    - 단점: 대용량 벡터 검색 시 성능 저하
-     * 
-     * 2. Pinecone (클라우드 벡터 DB)
-     *    - 장점: 관리 불필요, 확장성 우수, 빠른 검색
-     *    - 단점: 유료, 외부 의존성
-     * 
-     * 3. Chroma (오픈소스 벡터 DB)
-     *    - 장점: 무료, Python/JS 지원, 로컬 실행 가능
-     *    - 단점: Java 지원 제한적
-     * 
-     * 4. Weaviate (오픈소스 벡터 DB)
-     *    - 장점: GraphQL 지원, 하이브리드 검색
-     *    - 단점: 설치/운영 복잡
-     * 
-     * @return InMemory 벡터 저장소 (개발용)
+     * @return PostgreSQL pgvector 벡터 저장소
      */
     @Bean
     public EmbeddingStore<TextSegment> embeddingStore() {
-        log.info("💾 Embedding Store 초기화 - InMemoryEmbeddingStore (개발용)");
-        log.warn("⚠️ 프로덕션 환경에서는 PostgreSQL pgvector 또는 Pinecone 사용 권장");
+        log.info("💾 Embedding Store 초기화 - PostgreSQL pgvector (프로덕션용)");
+        log.info("📊 연결: {}, 테이블: {}, 차원: {}", pgvectorUrl, pgvectorTableName, pgvectorDimension);
         
-        // TextSegment: 문서 조각 (텍스트 + 메타데이터)
-        return new InMemoryEmbeddingStore<>();
+        try {
+            // PgVectorEmbeddingStore 생성
+            // host, port, database 파싱
+            // URL 형식: jdbc:postgresql://localhost:5432/vector_db
+            String cleanUrl = pgvectorUrl.replace("jdbc:postgresql://", "");
+            String[] parts = cleanUrl.split("/");
+            String[] hostPort = parts[0].split(":");
+            String host = hostPort[0];
+            int port = Integer.parseInt(hostPort[1]);
+            String database = parts[1];
+            
+            log.info("🔗 PostgreSQL 연결 정보 - host: {}, port: {}, database: {}", host, port, database);
+            
+            PgVectorEmbeddingStore store = PgVectorEmbeddingStore.builder()
+                    .host(host)
+                    .port(port)
+                    .database(database)
+                    .user(pgvectorUsername)
+                    .password(pgvectorPassword)
+                    .table(pgvectorTableName)
+                    .dimension(pgvectorDimension)
+                    .createTable(true)  // 테이블이 없으면 자동 생성
+                    .dropTableFirst(false)  // 기존 데이터 유지
+                    .build();
+            
+            log.info("✅ PostgreSQL pgvector 연결 성공");
+            return store;
+            
+        } catch (Exception e) {
+            log.error("❌ PostgreSQL pgvector 연결 실패: {}", e.getMessage(), e);
+            throw new IllegalStateException("PostgreSQL pgvector 초기화 실패", e);
+        }
+        
+        // ========== InMemory 방식 (개발용, 주석처리) ==========
+        // log.info("💾 Embedding Store 초기화 - InMemoryEmbeddingStore (개발용)");
+        // log.warn("⚠️ 프로덕션 환경에서는 PostgreSQL pgvector 사용 권장");
+        // return new InMemoryEmbeddingStore<>();
     }
 
     /**
